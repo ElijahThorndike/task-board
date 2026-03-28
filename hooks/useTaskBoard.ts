@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAccount, useReadContract, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
-import { APP_ID, APP_NAME, DEMO_ADDRESS } from "@/lib/constants";
-import { CONTRACT_ADDRESS, taskBoardAbi } from "@/lib/contract";
+import { APP_ID, APP_NAME, CONTRACT_MODE, CONTRACT_ADDRESS, DEMO_ADDRESS } from "@/lib/constants";
+import { legacyTaskBoardAbi, supportsOnchainTaskMutations, upgradedTaskBoardAbi } from "@/lib/contract";
 import { createLocalTask, getStoredTasks, saveStoredTasks, upsertTask } from "@/lib/task-store";
 import { decodeTaskPayload, encodeTaskPayload } from "@/lib/task-utils";
 import type { TaskEditorValues, TaskItem } from "@/lib/types";
@@ -22,16 +22,30 @@ function mergeTasks(chainTasks: TaskItem[], localTasks: TaskItem[]) {
   });
 }
 
+function priorityToIndex(priority: TaskEditorValues["priority"]) {
+  if (priority === "critical") return 0;
+  if (priority === "focus") return 1;
+  return 2;
+}
+
 export function useTaskBoard() {
+  const isUpgradedContract = supportsOnchainTaskMutations;
   const { address, isConnected } = useAccount();
   const owner = address ?? DEMO_ADDRESS;
   const [localTasks, setLocalTasks] = useState<TaskItem[]>([]);
-  const { data: chainData, refetch } = useReadContract({
+  const { data: legacyChainData, refetch: refetchLegacy } = useReadContract({
     address: CONTRACT_ADDRESS,
-    abi: taskBoardAbi,
+    abi: legacyTaskBoardAbi,
     functionName: "getTasks",
     args: [address!],
-    query: { enabled: Boolean(address) },
+    query: { enabled: Boolean(address) && !isUpgradedContract },
+  });
+  const { data: upgradedCount, refetch: refetchUpgradedCount } = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi: upgradedTaskBoardAbi,
+    functionName: "getTaskCount",
+    args: [address!],
+    query: { enabled: Boolean(address) && isUpgradedContract },
   });
   const { data: hash, isPending, writeContractAsync } = useWriteContract();
   const receipt = useWaitForTransactionReceipt({
@@ -53,26 +67,64 @@ export function useTaskBoard() {
     return () => window.removeEventListener("task-board-updated", handler);
   }, [refreshLocal]);
 
+  const refreshChain = useCallback(() => {
+    if (isUpgradedContract) {
+      return refetchUpgradedCount();
+    }
+
+    return refetchLegacy();
+  }, [isUpgradedContract, refetchLegacy, refetchUpgradedCount]);
+
   useEffect(() => {
     if (receipt.isSuccess && address && hash) {
       trackTransaction(APP_ID, APP_NAME, address, hash);
-      refetch();
+      refreshChain();
     }
-  }, [address, hash, receipt.isSuccess, refetch]);
+  }, [address, hash, receipt.isSuccess, refreshChain]);
 
-  const chainTasks = useMemo(() => {
-    if (!address || !chainData) return [];
-    return chainData.map((item, index) => decodeTaskPayload(item, address, index));
-  }, [address, chainData]);
+  const legacyTasks = useMemo(() => {
+    if (!address || !legacyChainData || isUpgradedContract) return [];
+    return legacyChainData.map((item, index) => decodeTaskPayload(item, address, index));
+  }, [address, isUpgradedContract, legacyChainData]);
 
+  const upgradedTasks = useMemo(() => {
+    if (!address || !isUpgradedContract) return [];
+    const count = Number(upgradedCount ?? 0);
+
+    return Array.from({ length: count }, (_, index) => ({
+      id: `chain-${address}-${index}`,
+      title: `Onchain Task ${index + 1}`,
+      note: "Upgrade the contract address to load structured task reads.",
+      status: "pending" as const,
+      priority: "focus" as const,
+      source: "chain" as const,
+      owner: address,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      tag: "Base",
+      chainIndex: index,
+    }));
+  }, [address, isUpgradedContract, upgradedCount]);
+
+  const chainTasks = isUpgradedContract ? upgradedTasks : legacyTasks;
   const tasks = useMemo(() => mergeTasks(chainTasks, localTasks), [chainTasks, localTasks]);
 
   const createTask = useCallback(
     async (values: TaskEditorValues, options?: { syncOnchain?: boolean }) => {
       if (isConnected && address && options?.syncOnchain) {
+        if (isUpgradedContract) {
+          await writeContractAsync({
+            address: CONTRACT_ADDRESS,
+            abi: upgradedTaskBoardAbi,
+            functionName: "addTask",
+            args: [values.title, values.note, priorityToIndex(values.priority)],
+          });
+          return;
+        }
+
         await writeContractAsync({
           address: CONTRACT_ADDRESS,
-          abi: taskBoardAbi,
+          abi: legacyTaskBoardAbi,
           functionName: "addTask",
           args: [encodeTaskPayload(values)],
         });
@@ -82,13 +134,24 @@ export function useTaskBoard() {
       const created = createLocalTask(owner, values);
       saveStoredTasks(owner, [created, ...getStoredTasks(owner)]);
     },
-    [address, isConnected, owner, writeContractAsync],
+    [address, isConnected, isUpgradedContract, owner, writeContractAsync],
   );
 
   const updateTask = useCallback(
-    (taskId: string, values: TaskEditorValues) => {
+    async (taskId: string, values: TaskEditorValues, options?: { syncOnchain?: boolean }) => {
       const current = tasks.find((item) => item.id === taskId);
       if (!current) return;
+
+      if (isConnected && address && options?.syncOnchain && isUpgradedContract && typeof current.chainIndex === "number") {
+        await writeContractAsync({
+          address: CONTRACT_ADDRESS,
+          abi: upgradedTaskBoardAbi,
+          functionName: "updateTask",
+          args: [BigInt(current.chainIndex), values.title, values.note, priorityToIndex(values.priority)],
+        });
+        return;
+      }
+
       upsertTask(owner, {
         ...current,
         ...values,
@@ -96,20 +159,31 @@ export function useTaskBoard() {
         tag: values.priority === "critical" ? "Urgent" : values.priority === "focus" ? "Focus" : "Routine",
       });
     },
-    [owner, tasks],
+    [address, isConnected, isUpgradedContract, owner, tasks, writeContractAsync],
   );
 
   const toggleStatus = useCallback(
-    (taskId: string) => {
+    async (taskId: string, options?: { syncOnchain?: boolean }) => {
       const current = tasks.find((item) => item.id === taskId);
       if (!current) return;
+
+      if (isConnected && address && options?.syncOnchain && isUpgradedContract && typeof current.chainIndex === "number") {
+        await writeContractAsync({
+          address: CONTRACT_ADDRESS,
+          abi: upgradedTaskBoardAbi,
+          functionName: "toggleTaskStatus",
+          args: [BigInt(current.chainIndex)],
+        });
+        return;
+      }
+
       upsertTask(owner, {
         ...current,
         status: current.status === "completed" ? "pending" : "completed",
         updatedAt: new Date().toISOString(),
       });
     },
-    [owner, tasks],
+    [address, isConnected, isUpgradedContract, owner, tasks, writeContractAsync],
   );
 
   const getTaskById = useCallback((taskId: string) => tasks.find((item) => item.id === taskId), [tasks]);
@@ -123,8 +197,11 @@ export function useTaskBoard() {
     createTask,
     updateTask,
     toggleStatus,
-    refresh: refetch,
+    refresh: refreshChain,
     isCreating: isPending || receipt.isLoading,
     latestHash: hash,
+    supportsOnchainTaskMutations: isUpgradedContract,
+    contractMode: CONTRACT_MODE,
+    upgradeContractHint: isUpgradedContract ? "" : "Deploy BaseTaskBoardV2 and replace the upgraded contract address to unlock onchain edits and status changes.",
   };
 }

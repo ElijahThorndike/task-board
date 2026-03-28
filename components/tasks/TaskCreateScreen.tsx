@@ -7,7 +7,7 @@ import { useTaskBoard } from "@/hooks/useTaskBoard";
 
 export function TaskCreateScreen() {
   const router = useRouter();
-  const { createTask, isCreating, isConnected, latestHash } = useTaskBoard();
+  const { createTask, isCreating, isConnected, latestHash, supportsOnchainTaskMutations, contractMode, upgradeContractHint } = useTaskBoard();
 
   return (
     <div className="page">
@@ -17,8 +17,18 @@ export function TaskCreateScreen() {
           <div className="panel-inner stack">
             <h2 className="section-title">Create Mode</h2>
             <p className="section-copy" style={{ color: "rgba(255,255,255,0.85)" }}>
-              Keep the form short. Save locally, or connect a wallet to send the create action onchain.
+              {supportsOnchainTaskMutations
+                ? "Create, edit, and status changes can all be sent as real Base transactions."
+                : "This live contract supports onchain create only. Edit and status writes become onchain after the V2 contract is deployed."}
             </p>
+            <p className="section-copy" style={{ color: "rgba(255,255,255,0.85)" }}>
+              Contract mode: {contractMode}
+            </p>
+            {upgradeContractHint ? (
+              <p className="section-copy" style={{ color: "rgba(255,255,255,0.85)" }}>
+                {upgradeContractHint}
+              </p>
+            ) : null}
             {latestHash ? (
               <p className="section-copy" style={{ color: "rgba(255,255,255,0.85)" }}>
                 Latest tx: {latestHash.slice(0, 10)}...
@@ -28,6 +38,8 @@ export function TaskCreateScreen() {
         </div>
         <TaskEditorForm
           canSyncOnchain={isConnected}
+          syncLabel="Send create onchain"
+          syncHint="Use a real Base transaction so the action can count toward onchain activity."
           isSaving={isCreating}
           submitLabel="Save task"
           onSubmit={async (values, options) => {

@@ -6,12 +6,14 @@ import type { TaskEditorValues, TaskItem } from "@/lib/types";
 type TaskEditorFormProps = {
   initialValues?: TaskItem;
   canSyncOnchain?: boolean;
+  syncLabel?: string;
+  syncHint?: string;
   isSaving?: boolean;
   submitLabel: string;
   onSubmit: (values: TaskEditorValues, options?: { syncOnchain?: boolean }) => Promise<void> | void;
 };
 
-export function TaskEditorForm({ initialValues, canSyncOnchain, isSaving, submitLabel, onSubmit }: TaskEditorFormProps) {
+export function TaskEditorForm({ initialValues, canSyncOnchain, syncLabel, syncHint, isSaving, submitLabel, onSubmit }: TaskEditorFormProps) {
   const [title, setTitle] = useState(initialValues?.title ?? "");
   const [note, setNote] = useState(initialValues?.note ?? "");
   const [priority, setPriority] = useState<TaskEditorValues["priority"]>(initialValues?.priority ?? "focus");
@@ -59,16 +61,16 @@ export function TaskEditorForm({ initialValues, canSyncOnchain, isSaving, submit
             </select>
           </div>
         </div>
-        {canSyncOnchain && !initialValues ? (
+        {canSyncOnchain ? (
           <label className="panel panel--lime" style={{ display: "block", boxShadow: "4px 4px 0 #111111", cursor: "pointer" }}>
             <div className="panel-inner" style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <input type="checkbox" checked={syncOnchain} onChange={(event) => setSyncOnchain(event.target.checked)} />
               <div className="stack" style={{ gap: 4 }}>
                 <strong className="label" style={{ margin: 0 }}>
-                  Sync create to Base
+                  {syncLabel ?? "Sync to Base"}
                 </strong>
                 <p className="section-copy" style={{ color: "#111111" }}>
-                  Edits and status changes stay in your local overlay until the contract adds update methods.
+                  {syncHint ?? "Send this task action as a real Base transaction."}
                 </p>
               </div>
             </div>

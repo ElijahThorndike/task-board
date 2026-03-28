@@ -13,7 +13,7 @@ const priorityColors = {
 };
 
 export function TaskDetailScreen({ id }: { id: string }) {
-  const { getTaskById, toggleStatus } = useTaskBoard();
+  const { getTaskById, toggleStatus, isConnected, isCreating, supportsOnchainTaskMutations, contractMode, upgradeContractHint } = useTaskBoard();
   const task = getTaskById(id);
 
   if (!task) {
@@ -54,6 +54,9 @@ export function TaskDetailScreen({ id }: { id: string }) {
                 <span className="badge" style={{ background: "#C7FF3C" }}>
                   {task.tag}
                 </span>
+                <span className="badge" style={{ background: "#FFFFFF" }}>
+                  {contractMode}
+                </span>
               </div>
             </div>
           </div>
@@ -62,8 +65,18 @@ export function TaskDetailScreen({ id }: { id: string }) {
               <span className="label" style={{ marginBottom: 0 }}>
                 Work Actions
               </span>
+              <p className="section-copy" style={{ color: "#111111" }}>
+                {supportsOnchainTaskMutations
+                  ? "Toggle status onchain when the task comes from the upgraded contract."
+                  : upgradeContractHint}
+              </p>
               <div className="action-row">
-                <button className="btn btn--red" type="button" onClick={() => toggleStatus(task.id)}>
+                <button
+                  className="btn btn--red"
+                  type="button"
+                  onClick={() => toggleStatus(task.id, { syncOnchain: isConnected && supportsOnchainTaskMutations })}
+                  disabled={isCreating}
+                >
                   {task.status === "completed" ? "Mark pending" : "Mark completed"}
                 </button>
                 <Link href={`/tasks/edit/${task.id}`} className="btn">

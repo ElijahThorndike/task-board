@@ -8,7 +8,7 @@ import { useTaskBoard } from "@/hooks/useTaskBoard";
 
 export function TaskEditScreen({ id }: { id: string }) {
   const router = useRouter();
-  const { getTaskById, updateTask } = useTaskBoard();
+  const { getTaskById, updateTask, isConnected, isCreating, supportsOnchainTaskMutations, contractMode, upgradeContractHint } = useTaskBoard();
   const task = getTaskById(id);
 
   if (!task) {
@@ -22,21 +22,35 @@ export function TaskEditScreen({ id }: { id: string }) {
 
   return (
     <div className="page">
-      <BoardHeader eyebrow="Edit Task" title="Tune The Card" description="Update the title, note, and local status without leaving the board flow." tone="lime" />
+      <BoardHeader eyebrow="Edit Task" title="Tune The Card" description="Update the title, note, and status in a focused task editor." tone="lime" />
       <section className="split">
         <div className="panel panel--violet">
           <div className="panel-inner stack">
-            <h2 className="section-title">Overlay Edit</h2>
+            <h2 className="section-title">Write Path</h2>
             <p className="section-copy" style={{ color: "rgba(255,255,255,0.86)" }}>
-              The current contract supports create and read. Edits here are stored as a local overlay for fast iteration.
+              {supportsOnchainTaskMutations
+                ? "This contract can write edits onchain. Enable sync below to send a real transaction."
+                : "This live contract is still in legacy mode. Edits are local until the V2 address is deployed."}
             </p>
+            <p className="section-copy" style={{ color: "rgba(255,255,255,0.86)" }}>
+              Contract mode: {contractMode}
+            </p>
+            {upgradeContractHint ? (
+              <p className="section-copy" style={{ color: "rgba(255,255,255,0.86)" }}>
+                {upgradeContractHint}
+              </p>
+            ) : null}
           </div>
         </div>
         <TaskEditorForm
           initialValues={task}
+          canSyncOnchain={isConnected && supportsOnchainTaskMutations && typeof task.chainIndex === "number"}
+          syncLabel="Send edit onchain"
+          syncHint="Use a real Base transaction so the edit can count toward onchain activity."
+          isSaving={isCreating}
           submitLabel="Update task"
-          onSubmit={(values) => {
-            updateTask(task.id, values);
+          onSubmit={async (values, options) => {
+            await updateTask(task.id, values, options);
             router.push(`/tasks/${task.id}`);
           }}
         />
