@@ -19,3 +19,11 @@ GitHub repository:
 https://github.com/ElijahThorndike/task-board.git
 
 ## Features
+
+- Task board project structure
+- Clear project identity
+- Repository hosted on GitHub
+- Suitable for continued development
+- Designed around task organization and workflow tracking
+
+## Getting Started
