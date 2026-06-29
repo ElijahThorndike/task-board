@@ -47,3 +47,11 @@ Clone the repository:
 ```bash
 git clone https://github.com/ElijahThorndike/task-board.git
 ```
+
+Move into the project directory:
+
+```bash
+cd task-board
+```
+
+Install dependencies if the project includes a dependency manifest.
