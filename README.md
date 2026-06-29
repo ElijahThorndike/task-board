@@ -11,3 +11,11 @@ https://github.com/ElijahThorndike/task-board.git
 The repository name is `task-board`, and this README is intended to provide a clear starting point for anyone cloning, reviewing, or continuing development on the project.
 
 Use this project as a foundation for tracking work items, organizing tasks by status, and improving task visibility.
+
+## Repository
+
+GitHub repository:
+
+https://github.com/ElijahThorndike/task-board.git
+
+## Features
