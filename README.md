@@ -69,3 +69,11 @@ If another dependency system is used, follow the conventions shown in the projec
 Open the project in your preferred editor.
 
 Review the available files and scripts to determine how the project should be run.
+
+If a `package.json` file is present, check the available scripts with:
+
+```bash
+npm run
+```
+
+Then run the appropriate development command, such as:
