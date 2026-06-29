@@ -55,3 +55,11 @@ cd task-board
 ```
 
 Install dependencies if the project includes a dependency manifest.
+
+For example, if a `package.json` file is present:
+
+```bash
+npm install
+```
+
+If another dependency system is used, follow the conventions shown in the project files.
