@@ -41,3 +41,9 @@ Before starting, make sure you have the following installed:
 If the repository includes dependency files, use the matching package manager or tooling for those files.
 
 ## Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/ElijahThorndike/task-board.git
+```
