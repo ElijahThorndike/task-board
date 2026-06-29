@@ -77,3 +77,9 @@ npm run
 ```
 
 Then run the appropriate development command, such as:
+
+```bash
+npm run dev
+```
+
+or:
