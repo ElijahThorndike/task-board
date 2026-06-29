@@ -33,3 +33,11 @@ Follow the steps below to work with the project locally.
 ## Prerequisites
 
 Before starting, make sure you have the following installed:
+
+- Git
+- A code editor
+- Any runtime or package manager required by the project files
+
+If the repository includes dependency files, use the matching package manager or tooling for those files.
+
+## Installation
