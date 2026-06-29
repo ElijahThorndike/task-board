@@ -63,3 +63,9 @@ npm install
 ```
 
 If another dependency system is used, follow the conventions shown in the project files.
+
+## Usage
+
+Open the project in your preferred editor.
+
+Review the available files and scripts to determine how the project should be run.
