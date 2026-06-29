@@ -27,3 +27,9 @@ https://github.com/ElijahThorndike/task-board.git
 - Designed around task organization and workflow tracking
 
 ## Getting Started
+
+Follow the steps below to work with the project locally.
+
+## Prerequisites
+
+Before starting, make sure you have the following installed:
